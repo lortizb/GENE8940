@@ -11,6 +11,7 @@
 #SBATCH --output=/work/gene8940/lo50936/log.%j
 
 mkdir "/work/gene8940/lo50936/HMW03"
+
 BASEDIR="/work/gene8940/lo50936/HMW03"
 
 curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.gff.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.gff
@@ -30,8 +31,8 @@ samtools faidx ecoli_MG1655_ncbi_refseq.fna
 cut -f1-2 ecoli_MG1655_ncbi_refseq.fna.fai > genome.txt
 bedtools complement -i ecoli_MG1655_CDS.bed -g genome.txt > ecoli_MG1655_ncbi_refseq_nonCDS.bed
 
-bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_CDS.bed > CDS.fa
-bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fa
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fna -bed ecoli_MG1655_CDS.bed > CDS.fa
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fna -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fa
 
 module load ucsc/359
 faCount -summary CDS.fa
