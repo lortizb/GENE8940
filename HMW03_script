@@ -14,7 +14,7 @@ mkdir "/work/gene8940/lo50936/HMW03"
 BASEDIR="/work/gene8940/lo50936/HMW03"
 
 curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.gff.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.gff
-curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fa
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
 
 module load BEDOPS/2.4.30
 module load BEDTools/2.26.0-foss-2016b
@@ -24,14 +24,14 @@ convert2bed --input=gff [output=bed] <ecoli_MG1655_ncbi_refseq.gff> ecoli_MG1655
 grep "CDS" ecoli_MG1655_ncbi_refseq.bed > ecoli_MG1655_CDS.bed
 
 module load SAMtools/1.6-foss-2016b
-samtools faidx ecoli_MG1655_ncbi_refseq.fa
+samtools faidx ecoli_MG1655_ncbi_refseq.fna
 
-cut -f1-2 ecoli_MG1655_ncbi_refseq.fa.fai > genome.txt
+cut -f1-2 ecoli_MG1655_ncbi_refseq.fna.fai > genome.txt
 bedtools complement -i ecoli_MG1655_CDS.bed -g genome.txt > ecoli_MG1655_ncbi_refseq_nonCDS.bed
 
-bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_CDS.bed > CDS.fasta
-bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fasta
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_CDS.bed > CDS.fa
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fa
 
 module load ucsc/359
-faCount -summary CDS.fasta
-faCount -summary non_CDS.fasta
+faCount -summary CDS.fa
+faCount -summary non_CDS.fa
