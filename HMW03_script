@@ -19,6 +19,7 @@ curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_A
 module load BEDOPS/2.4.30
 module load BEDTools/2.26.0-foss-2016b
 
+cd /work/gene8940/lo50936/HMW03
 convert2bed --input=gff [output=bed] <ecoli_MG1655_ncbi_refseq.gff> ecoli_MG1655_ncbi_refseq.bed
 
 grep "CDS" ecoli_MG1655_ncbi_refseq.bed > ecoli_MG1655_CDS.bed
