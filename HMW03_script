@@ -35,5 +35,5 @@ bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fna -bed ecoli_MG1655_CDS.bed > C
 bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fna -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fa
 
 module load ucsc/359
-faCount -summary CDS.fa > CDS.txt
-faCount -summary non_CDS.fa > non_CDS.txt
+faCount -summary CDS.fa
+faCount -summary non_CDS.fa
