@@ -1,0 +1,37 @@
+#!/bin/bash
+#SBATCH --job-name=HMW03
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=20gb
+#SBATCH --time=2:00:00
+#SBATCH --output=log.%j
+#SBATCH --mail-user=lo50936@uga.edu
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=/work/gene8940/lo50936/log.%j
+
+mkdir "/work/gene8940/lo50936/HMW03"
+BASEDIR="/work/gene8940/lo50936/HMW03"
+
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.gff.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.gff
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fa
+
+module load BEDOPS/2.4.30
+module load BEDTools/2.26.0-foss-2016b
+
+convert2bed --input=gff [output=bed] <ecoli_MG1655_ncbi_refseq.gff> ecoli_MG1655_ncbi_refseq.bed
+
+grep "CDS" ecoli_MG1655_ncbi_refseq.bed > ecoli_MG1655_CDS.bed
+
+module load SAMtools/1.6-foss-2016b
+samtools faidx ecoli_MG1655_ncbi_refseq.fa
+
+cut -f1-2 ecoli_MG1655_ncbi_refseq.fa.fai > genome.txt
+bedtools complement -i ecoli_MG1655_CDS.bed -g genome.txt > ecoli_MG1655_ncbi_refseq_nonCDS.bed
+
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_CDS.bed > CDS.fasta
+bedtools getfasta -fi ecoli_MG1655_ncbi_refseq.fa -bed ecoli_MG1655_ncbi_refseq_nonCDS.bed > non_CDS.fasta
+
+module load ucsc/359
+faCount -summary CDS.fasta
+faCount -summary non_CDS.fasta
