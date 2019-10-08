@@ -1,0 +1,54 @@
+#!/bin/bash
+#SBATCH --job-name=HMWK04
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=20gb
+#SBATCH --time=24:00:00
+#SBATCH --output=log.%j
+#SBATCH --mail-user=lo50936@uga.edu
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=/work/gene8940/lo50936/log.%j
+
+#Working directory
+mkdir "/work/gene8940/lo50936/HMW04"
+BASEDIR="/work/gene8940/lo50936/HMW04"
+
+#For PacBio assembly (using Canu)
+curl -L -o pacbio.fastq http://gembox.cbcb.umd.edu/mhap/raw/ecoli_p6_25x.filtered.fastq
+mkdir PacBioAssembly
+module load canu/1.7-foss-2016b
+canu -p ecoli -d PacBioAssembly genomeSize=4.8m -pacbio-raw pacbio.fastq useGrid=false
+
+#For Illumina assembly (using Spades)
+wget http://bergmanlab.genetics.uga.edu/data/downloads/gene8940/s_6_1.fastq.gz
+wget http://bergmanlab.genetics.uga.edu/data/downloads/gene8940/s_6_2.fastq.gz
+mkdir Illumina_assembly
+module load SPAdes/3.11.1-foss-2016b
+spades.py -t 8 -k 21,33,55,77 --careful --memory 20 --pe1-1 s_6_1.fastq.gz --pe1-2 s_6_2.fastq.gz -o $BASEDIR/Illumina_assembly
+
+#Assembly quality assessment statistics (using Quast)
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/Illumina_assembly/ecoli_MG1655_ncbi_refseq.fna
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/PacBioAssembly/ecoli_MG1655_ncbi_refseq.fna
+
+#PacBio quality assesment
+module load QUAST/5.0.0.dev0-foss-2016b-Python-3.5.2
+cd $BASEDIR/PacBioAssembly/
+quast.py ecoli_MG1655_ncbi_refseq.fna ecoli.contigs.fasta
+cd ..
+
+#Illumina quality assesment
+cd $BASEDIR/Illumina_assembly/
+quast.py ecoli_MG1655_ncbi_refseq.fna contigs.fasta
+cd ..
+
+#mummerplots (PacBio)
+module load MUMmer/3.23-foss-2016b
+nucmer $BASEDIR/PacBioAssembly/ecoli_MG1655_ncbi_refseq.fna $BASEDIR/PacBioAssembly/ecoli.contigs.fasta -p ecoli.contigs_PacBio
+delta-filter -1 ecoli.contigs_PacBio.delta > ecoli.contigs_PacBio.1delta
+mummerplot --size large -fat --color -f --png ecoli.contigs_PacBio.1delta -p ecoli.contigs_PacBio
+
+#mummerplots (Illumnia)
+nucmer $BASEDIR/Illumina_assembly/ecoli_MG1655_ncbi_refseq.fna $BASEDIR/Illumina_assembly/contigs.fasta -p ecoli.contigs_Illumina
+delta-filter -1 ecoli.contigs_Illumina.delta > ecoli.contigs_Illumina.1delta
+mummerplot --size large -fat --color -f --png ecoli.contigs_Illumina.1delta -p ecoli.contigs_Illumina
