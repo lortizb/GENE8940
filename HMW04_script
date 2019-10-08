@@ -15,10 +15,11 @@ mkdir "/work/gene8940/lo50936/HMW04"
 BASEDIR="/work/gene8940/lo50936/HMW04"
 
 #For PacBio assembly (using Canu)
-curl -L -o $BASEDIR/pacbio.fastq http://gembox.cbcb.umd.edu/mhap/raw/ecoli_p6_25x.filtered.fastq
+cd /work/gene8940/lo50936/HMW04
+curl -L -o pacbio.fastq http://gembox.cbcb.umd.edu/mhap/raw/ecoli_p6_25x.filtered.fastq
 mkdir $BASEDIR/PacBioAssembly
 module load canu/1.7-foss-2016b
-canu -p ecoli -d PacBioAssembly genomeSize=4.8m -pacbio-raw $BASEDIR/pacbio.fastq useGrid=false
+canu -p ecoli -d PacBioAssembly genomeSize=4.8m -pacbio-raw pacbio.fastq useGrid=false
 
 #For Illumina assembly (using Spades)
 wget http://bergmanlab.genetics.uga.edu/data/downloads/gene8940/s_6_1.fastq.gz
