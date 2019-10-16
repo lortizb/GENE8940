@@ -1,0 +1,37 @@
+#!/bin/bash
+#SBATCH --job-name=HMWK04
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=20gb
+#SBATCH --time=24:00:00
+#SBATCH --output=log.%j
+#SBATCH --mail-user=lo50936@uga.edu
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=/work/gene8940/lo50936/log.%j
+
+#Working directory
+mkdir "/work/gene8940/lo50936/HMW05"
+BASEDIR="/work/gene8940/lo50936/HMW05"
+cd /work/gene8940/lo50936/HMW05
+
+# retrieve paired Illumina data in gzipped fastq format
+module load SRA-Toolkit/2.9.1-centos_linux64
+fastq-dump --split-files --gzip SRR8082143
+
+#Reference strain
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
+
+#Mapping reads
+module load SAMtools/1.6-foss-2016b
+module load BWA/0.7.17-foss-2016b
+
+bwa index ecoli_MG1655_ncbi_refseq.fna
+bwa mem -t 1 ecoli_MG1655_ncbi_refseq.fna SRR8082143_1.fastq.gz SRR8082143_2.fastq.gz | samtools view -b - | samtools sort - >MG1655_SRR8082143.sorted.bam
+samtools index MG1655_SRR8082143.sorted.bam
+
+#Call variants and generate consensus sequence
+module load BCFtools/1.6-foss-2016b
+bcftools mpileup -Ou -f ecoli_MG1655_ncbi_refseq.fna MG1655_SRR8082143.sorted.bam | bcftools call -mv -Oz --ploidy 1 -o call.vcf.gz
+tabix -p vcf call.vcf.gz
+bcftools consensus -f ecoli_MG1655_ncbi_refseq.fna call.vcf.gz > ecoli_C600_consensus.fa
