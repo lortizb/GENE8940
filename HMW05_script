@@ -27,7 +27,7 @@ module load SAMtools/1.6-foss-2016b
 module load BWA/0.7.17-foss-2016b
 
 bwa index ecoli_MG1655_ncbi_refseq.fna
-bwa mem -t 1 ecoli_MG1655_ncbi_refseq.fna SRR8082143_1.fastq.gz SRR8082143_2.fastq.gz | samtools view -b - | samtools sort - >MG1655_SRR8082143.sorted.bam
+bwa mem -t 1 ecoli_MG1655_ncbi_refseq.fna SRR8082143_1.fastq.gz SRR8082143_2.fastq.gz | samtools view -b - | samtools sort - > MG1655_SRR8082143.sorted.bam
 samtools index MG1655_SRR8082143.sorted.bam
 
 #Call variants and generate consensus sequence
