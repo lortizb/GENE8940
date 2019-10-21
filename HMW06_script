@@ -11,6 +11,45 @@
 #SBATCH --output=/work/gene8940/lo50936/log.%j
 
 #Working directory
-mkdir "/work/gene8940/lo50936/HMW05"
-BASEDIR="/work/gene8940/lo50936/HMW05"
-cd /work/gene8940/lo50936/HMW05
+mkdir "/work/gene8940/lo50936/HMW06"
+BASEDIR="/work/gene8940/lo50936/HMW06"
+cd /work/gene8940/lo50936/HMW06
+
+#Downloads reads and refrence sequence
+module load SRA-Toolkit/2.9.1-centos_linux64
+
+#Ecoli_wild-type_rep1_anaerobic RNA-seq (Ecoli_wt1)
+fastq-dump --split-files --gzip SRR5344681
+#Ecoli_wild-type_rep2_anaerobic RNA-seq (Ecoli_wt2)
+fastq-dump --split-files --gzip SRR5344682
+#Ecoli_dFNR_rep1_anaerobic RNA-seq (Ecoli_dFNR1)
+fastq-dump --split-files --gzip SRR5344683
+#Ecoli_dFNR_rep2_anaerobic RNA-seq (Ecoli_dFNR2)
+fastq-dump --split-files --gzip SRR5344684
+
+#Reference strain
+curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
+
+#Kallisto index
+module load kallisto/0.43.1-foss-2016b
+kallisto index -i transcripts.idx ecoli_MG1655_ncbi_refseq.fna
+
+mkdir Ecoli_wt1
+cd Ecoli_wt1
+kallisto quant -i transcripts.idx -o Ecoli_wt1 -b 100 -t SRR5344681_1.fastq.gz SRR5344681_2.fastq.gz
+cd ..
+
+mkdir Ecoli_wt2
+cd Ecoli_wt2
+kallisto quant -i transcripts.idx -o Ecoli_wt2 -b 100 -t SRR5344682_1.fastq.gz SRR5344682_2.fastq.gz
+cd ..
+
+mkdir Ecoli_dFNR1
+cd Ecoli_dFNR1
+kallisto quant -i transcripts.idx -o Ecoli_dFNR1 -b 100 -t SRR5344683_1.fastq.gz SRR5344683_2.fastq.gz
+cd ..
+
+mkdir Ecoli_dFNR2
+cd Ecoli_dFNR2
+kallisto quant -i transcripts.idx -o Ecoli_dFNR2 -b 100 -t SRR5344684_1.fastq.gz SRR5344684_2.fastq.gz
+cd ..
