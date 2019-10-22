@@ -15,6 +15,7 @@ mkdir "/work/gene8940/lo50936/HMW06"
 BASEDIR="/work/gene8940/lo50936/HMW06"
 cd /work/gene8940/lo50936/HMW06
 
+
 #Downloads reads and refrence sequence
 module load SRA-Toolkit/2.9.1-centos_linux64
 
