@@ -16,16 +16,18 @@ BASEDIR="/work/gene8940/lo50936/HMW06"
 cd /work/gene8940/lo50936/HMW06
 
 #Downloads reads and refrence sequence
-module load SRA-Toolkit/2.9.1-centos_linux64
+wget -O SRR5344681_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_1.fastq.gz"
+wget -O SRR5344681_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_2.fastq.gz"
 
-#Ecoli_wild-type_rep1_anaerobic RNA-seq (Ecoli_wt1)
-fastq-dump --split-files --gzip SRR5344681
-#Ecoli_wild-type_rep2_anaerobic RNA-seq (Ecoli_wt2)
-fastq-dump --split-files --gzip SRR5344682
-#Ecoli_dFNR_rep1_anaerobic RNA-seq (Ecoli_dFNR1)
-fastq-dump --split-files --gzip SRR5344683
-#Ecoli_dFNR_rep2_anaerobic RNA-seq (Ecoli_dFNR2)
-fastq-dump --split-files --gzip SRR5344684
+wget -O SRR5344682_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_1.fastq.gz"
+wget -O SRR5344682_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_2.fastq.gz"
+
+wget -O SRR5344683_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_1.fastq.gz"
+wget -O SRR5344683_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_2.fastq.gz"
+
+wget -O SRR5344684_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_1.fastq.gz"
+wget -O SRR5344684_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_2.fastq.gz"
+
 
 #Reference strain
 curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
@@ -39,7 +41,7 @@ kallisto quant -i transcripts.idx -o Ecoli_dFNR1 -b 100 -t 1 SRR5344683_1.fastq.
 kallisto quant -i transcripts.idx -o Ecoli_dFNR2 -b 100 -t 1 SRR5344684_1.fastq.gz SRR5344684_2.fastq.gz
 
 mkdir $BASEDIR/kallisto_results
-mv Ecoli*/ $BASEDIR/kallisto_results
+mv Ecoli_*/ $BASEDIR/kallisto_results
 
 #R
 #module load R/3.4.4-foss-2016b-X11-20160819-GACRC
