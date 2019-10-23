@@ -44,5 +44,5 @@ cd /work/gene8940/lo50936/HMW06
 
 #R
 module load R/3.4.4-foss-2016b-X11-20160819-GACRC
-R --no-save < /home/lo50936/GENE8940/HMW06/ecoli-rnaseq-sleuth_HMW06.r
+R --no-save < /home/lo50936/GENE8940/ecoli-rnaseq-sleuth_HMW06.r
 
