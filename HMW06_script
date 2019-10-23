@@ -11,7 +11,7 @@
 #SBATCH --output=/work/gene8940/lo50936/log.%j
 
 #Working directory
-mkdir "/work/gene8940/lo50936/HMW06"
+#mkdir "/work/gene8940/lo50936/HMW06"
 BASEDIR="/work/gene8940/lo50936/HMW06"
 cd /work/gene8940/lo50936/HMW06
 
