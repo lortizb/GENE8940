@@ -16,17 +16,17 @@ BASEDIR="/work/gene8940/lo50936/HMW06"
 cd /work/gene8940/lo50936/HMW06
 
 #Downloads reads and refrence sequence
-wget -O SRR5344681_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_1.fastq.gz"
-wget -O SRR5344681_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_2.fastq.gz"
+wget -O $BASEDIR/SRR5344681_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_1.fastq.gz"
+wget -O $BASEDIR/SRR5344681_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/001/SRR5344681/SRR5344681_2.fastq.gz"
 
-wget -O SRR5344682_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_1.fastq.gz"
-wget -O SRR5344682_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_2.fastq.gz"
+wget -O $BASEDIR/SRR5344682_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_1.fastq.gz"
+wget -O $BASEDIR/SRR5344682_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/002/SRR5344682/SRR5344682_2.fastq.gz"
 
-wget -O SRR5344683_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_1.fastq.gz"
-wget -O SRR5344683_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_2.fastq.gz"
+wget -O $BASEDIR/SRR5344683_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_1.fastq.gz"
+wget -O $BASEDIR/SRR5344683_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/003/SRR5344683/SRR5344683_2.fastq.gz"
 
-wget -O SRR5344684_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_1.fastq.gz"
-wget -O SRR5344684_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_2.fastq.gz"
+wget -O $BASEDIR/SRR5344684_1.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_1.fastq.gz"
+wget -O $BASEDIR/SRR5344684_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_2.fastq.gz"
 
 
 #Reference strain
