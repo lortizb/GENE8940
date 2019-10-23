@@ -29,19 +29,20 @@ cd /work/gene8940/lo50936/HMW06
 #wget -O $BASEDIR/SRR5344684_2.fastq.gz "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR534/004/SRR5344684/SRR5344684_2.fastq.gz"
 
 #Reference strain (CDS regions)
-curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_cds_from_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
+#curl -s ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_cds_from_genomic.fna.gz | gunzip -c > $BASEDIR/ecoli_MG1655_ncbi_refseq.fna
 
 #Kallisto index and quant
-module load kallisto/0.43.1-foss-2016b
-kallisto index -i transcripts.idx ecoli_MG1655_ncbi_refseq.fna
-kallisto quant -i transcripts.idx -o sample1 -b 100 -t 4 SRR5344681_1.fastq.gz SRR5344681_2.fastq.gz
-kallisto quant -i transcripts.idx -o sample2 -b 100 -t 4 SRR5344682_1.fastq.gz SRR5344682_2.fastq.gz
-kallisto quant -i transcripts.idx -o sample3 -b 100 -t 4 SRR5344683_1.fastq.gz SRR5344683_2.fastq.gz
-kallisto quant -i transcripts.idx -o sample4 -b 100 -t 4 SRR5344684_1.fastq.gz SRR5344684_2.fastq.gz
+#module load kallisto/0.43.1-foss-2016b
+#kallisto index -i transcripts.idx ecoli_MG1655_ncbi_refseq.fna
+#kallisto quant -i transcripts.idx -o sample1 -b 100 -t 4 SRR5344681_1.fastq.gz SRR5344681_2.fastq.gz
+#kallisto quant -i transcripts.idx -o sample2 -b 100 -t 4 SRR5344682_1.fastq.gz SRR5344682_2.fastq.gz
+#kallisto quant -i transcripts.idx -o sample3 -b 100 -t 4 SRR5344683_1.fastq.gz SRR5344683_2.fastq.gz
+#kallisto quant -i transcripts.idx -o sample4 -b 100 -t 4 SRR5344684_1.fastq.gz SRR5344684_2.fastq.gz
 
-mkdir $BASEDIR/kallisto_results
-mv sample*/ $BASEDIR/kallisto_results
+#mkdir $BASEDIR/kallisto_results
+#mv sample*/ $BASEDIR/kallisto_results
 
 #R
-#module load R/3.4.4-foss-2016b-X11-20160819-GACRC
-#R --no-save < /home/lo50936/GENE8940/HMW06/ecoli-rnaseq-sleuth_HMW06.sh
+module load R/3.4.4-foss-2016b-X11-20160819-GACRC
+R --no-save < /home/lo50936/GENE8940/HMW06/ecoli-rnaseq-sleuth_HMW06.r
+
