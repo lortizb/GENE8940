@@ -1,0 +1,69 @@
+#PBS -S /bin/bash
+#PBS -q batch
+#PBS -N jobname
+#PBS -l nodes=1:ppn=16
+#PBS -l walltime=48:00:00
+#PBS -l mem=8gb
+#PBS --output=log.%j
+#PBS --output=/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/log.%j
+
+# I need to fix the working directory, For now I am working interactively
+cd $PBS_O_WORKDIR
+mkdir "Data_analysis"
+cd Data_analysis/
+##BASEDIR="/scratch/lo50936/Data_analysis/Nanopore/Data_analysis"
+
+#Combine all input reads into a single file
+cat Run2/fastq_pass/*.fastq | gzip > all_reads.fastq.gz
+
+#Demultiplex barcodes, the total reads and barcodes of each sammple can be found in the log file
+module load Porechop/0.2.4-foss-2016b-Python-3.5.2
+porechop -i all_reads.fastq.gz -b Demultiplexed
+
+# Assembly draft genome using Canu (generation of fasta files)
+cd Demultiplexed/
+module load canu/1.7.1
+for i in BC*gz
+do
+  f=$( echo $i | cut -d"." -f1)
+canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false
+done
+
+#Improve the draft genome usong Nanopolish, For now I am working only with one sample. When it works well for this sample I will modify the script including all samples
+#Index the reads using the raw data (fast5 files and dexultiplexed reads)
+module load Nanopolish/0.10.2
+nanopolish index -d fast5_pass/ BC04.fastq.gz
+
+#Align the basecalled reads to the draft genome
+module load minimap2/2.17-foss-2018a
+minimap2 -ax map-ont -t 8 BC04.contigs.fasta BC04.fastq.gz | samtools sort -o reads_2.sorted.bam -T reads_2.tmp
+module load SAMtools/1.6-foss-2016b
+samtools index reads_2.sorted.bam
+
+grep \> BC04.contigs.fasta
+more BC04.contigs.fasta.fai
+#Using the previous line I got 5 contigs tig00000002, tig00000005, tig00000010, tig00001152, tig00001153
+nanopolish variants --consensus -o polished_2.vcf -w "tig00000002:1-905" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
+nanopolish variants --consensus -o polished_3.vcf -w "tig00000005:1-1018" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
+nanopolish variants --consensus -o polished_4.vcf -w "tig00000010:1-2223" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
+nanopolish variants --consensus -o polished_5.vcf -w "tig00001152:1-1547" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
+nanopolish variants --consensus -o polished_6.vcf -w "tig00001153:1-1560" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
+#For the conting 1152 I got this error (however I got the vcf file): Number of variants in span (12) would exceed max-haplotypes. Variants may be missed. Consider running with a higher value of max-haplotypes!
+
+#generate the polished genome in fasta format
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_2.vcf > polished_genome_2.fa
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_2.vcf > polished_genome_2.fa
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_3.vcf > polished_genome_3.fa
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_4.vcf > polished_genome_4.fa
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_5.vcf > polished_genome_5.fa
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_6.vcf > polished_genome_6.fa
+# I got an error for the contigs 05, 10, 1152 and 1153 (I didn´t get any polished genomes for these contigs): error: no polishing windows found for tig00000002
+
+#Nanopore quality assesment (done only for the contig 02, using as reference the sequence I got by Illumina)
+module load QUAST/5.0.0.dev0-foss-2016b-Python-3.5.2
+quast.py LO-034_final_Seg8.fa polished_genome_2.fa
+
+module load MUMmer/3.23-foss-2016b
+nucmer LO-034_final_Seg8.fa polished_genome_2.fa -p test_genomes
+delta-filter -1 test_genomes.delta > test_genomes.1delta
+mummerplot --size large -fat --color -f --png test_genomes.1delta -p test_genomes
