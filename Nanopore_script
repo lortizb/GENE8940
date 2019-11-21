@@ -31,7 +31,7 @@ done
 
 #Improve the draft genome usong Nanopolish, For now I am working only with one sample. When it works well for this sample I will modify the script including all samples
 #Index the reads using the raw data (fast5 files and dexultiplexed reads)
-module load Nanopolish/0.10.2
+module load Nanopolish/0.11.1
 nanopolish index -d fast5_pass/ BC04.fastq.gz
 
 #Align the basecalled reads to the draft genome
@@ -52,18 +52,30 @@ nanopolish variants --consensus -o polished_6.vcf -w "tig00001153:1-1560" -r BC0
 
 #generate the polished genome in fasta format
 nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_2.vcf > polished_genome_2.fa
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_2.vcf > polished_genome_2.fa
 nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_3.vcf > polished_genome_3.fa
 nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_4.vcf > polished_genome_4.fa
 nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_5.vcf > polished_genome_5.fa
 nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_6.vcf > polished_genome_6.fa
-# I got an error for the contigs 05, 10, 1152 and 1153 (I didn´t get any polished genomes for these contigs): error: no polishing windows found for tig00000002
 
-#Nanopore quality assesment (done only for the contig 02, using as reference the sequence I got by Illumina)
-module load QUAST/5.0.0.dev0-foss-2016b-Python-3.5.2
-quast.py LO-034_final_Seg8.fa polished_genome_2.fa
-
+#Aligning the polished sequences with the reference (I used Illumina sequences as reference)
 module load MUMmer/3.23-foss-2016b
-nucmer LO-034_final_Seg8.fa polished_genome_2.fa -p test_genomes
-delta-filter -1 test_genomes.delta > test_genomes.1delta
-mummerplot --size large -fat --color -f --png test_genomes.1delta -p test_genomes
+
+#For Segment 8 of IAV
+nucmer PATH/LO-034_final_Seg8.fa polished_02.fa -p segment8
+delta-filter -1 segment8.delta > segment8.1delta
+mummerplot --size large -fat --color -f --png segment8.1delta -p segment8
+
+#For Segment 7 of IAV
+nucmer LO-034_final_Seg7.fa polished_genome_3.fa -p segment7
+delta-filter -1 segment7.delta > segment7.1delta
+mummerplot --size large -fat --color -f --png segment7.1delta -p segment7
+
+#For Segment 3 of IAV
+nucmer LO-034_final_Seg3.fa polished_genome_4.fa -p segment3
+delta-filter -1 segment3.delta > segment3.1delta
+mummerplot --size large -fat --color -f --png segment3.1delta -p segment3
+
+#For Segment 5 of IAV
+nucmer LO-034_final_Seg5.fa polished_genome_5.fa -p segment5
+delta-filter -1 segment5.delta > segment5.1delta
+mummerplot --size large -fat --color -f --png segment5.1delta -p segment5
