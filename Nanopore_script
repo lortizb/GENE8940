@@ -17,6 +17,14 @@ cd Data_analysis/
 #fast5_files/
 #fastq_files/
 
+#For basecalling using Guppy (when MinIt is not used)
+#module load ont-guppy/3.2.4-CPU
+#for i in fast5/*
+#do
+#  f=$( echo $i )
+#guppy_basecaller -i  $f -s /scratch/lo50936/Data_analysis/Nanopore/20190619_Run_1/ --flowcell  FLO-MIN106 --kit SQK-DCS108
+#done
+
 #Combine all input reads into a single file (all fastq files)
 cat fastq_files/*/*.fastq | gzip > all_reads.fastq.gz
 
@@ -33,79 +41,30 @@ do
 canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false
 done
 
-#Improve the draft genome using Nanopolish, For now I am working only with one sample. When it works well for this sample I will modify the script including all samples
-#Index the reads using the raw data (fast5 files and dexultiplexed reads)
+#Improve the draft genome using Nanopolish
 module load Nanopolish/0.11.1
-nanopolish index -d /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST4/fast5_files/ BC04.fastq.gz
+nanopolish index -d /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/Test3_rep/fast5_files BC04.fastq.gz
 
-#Align the basecalled reads to the draft genome
+#Create an index file that links reads id with their signal-level data in the raw data
 module load minimap2/2.17-foss-2018a
-minimap2 -ax map-ont -t 8 BC04/BC04.contigs.fasta BC04.fastq.gz | samtools sort -o reads_BC04.sorted.bam -T reads_BC04.tmp
-module load SAMtools/1.6-foss-2016b
+module load SAMtools/1.6-foss-2016b #module load SAMtools/1.9-foss-2016b
+minimap2 -ax map-ont -t 8 BC04.contigs.fasta BC04.fastq.gz | samtools sort -o reads_BC04.sorted.bam -T reads_BC04.tmp
 samtools index reads_BC04.sorted.bam
 
-#contigs and lenghs (found in BC04.contigs.fasta):
-#  ti00000002 905
-#  ti00000005 1018
-#  ti00000010 2223
-#  ti00001152 1547
-#  ti00001153 1560
-
-nanopolish variants --consensus -o polished_1.vcf -w "tig00000002:1-905" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-nanopolish variants --consensus -o polished_2.vcf -w "tig00000005:1-1018" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-nanopolish variants --consensus -o polished_3.vcf -w "tig00000010:1-2223" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-nanopolish variants --consensus -o polished_4.vcf -w "tig00001152:1-1547" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-nanopolish variants --consensus -o polished_5.vcf -w "tig00001153:1-1560" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-
-# Same as before but using a loop
-
+#Compute a new consensus sequence for the draft genome
 grep \> BC04.contigs.fasta | cat | tr -d ">" | tr -d "len=" > contig_list.txt
-for i in 1 2 3 4 5
+count=$( grep "tig" contig_list.txt | wc -l); echo $count
+for ((i=1;i<$count+1;i++))
 do
 contig=$( cat contig_list.txt | awk -v f=1 -v h=$i 'FNR == h {print $f}' )
 lengh=$( cat contig_list.txt | awk -v f=$i -v h=2 'FNR == f {print $h}' )
-nanopolish variants --consensus -o polished_$i.vcf -w "$contig:1-$lengh" -r BC04.fastq.gz -b reads_2.sorted.bam -g BC04.contigs.fasta
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_$i.vcf > polished_genome_$i.fa
-samtools faidx polished_genome_$i.fa "$contig:1-$lengh" > polished_$i.fa
+nanopolish variants --consensus -o variants_$i.vcf -w "$contig:1-$lengh" -r BC04.fastq.gz -b reads_BC04.sorted.bam -g BC04.contigs.fasta
+nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta variants_$i.vcf > draft_gene_$i.fa
+samtools faidx draft_gene_$i.fa "$contig:1-$lengh" > polished_gene_$i.fa
 done
+cat polished_gene*.fa > final_genome.fa #Esta linea la tengo que modificar para que sea específica para bardcode, de lo contrario va a unir todos los archivos que encuentre
 
 
-
-#prints firt line (change 1 to print other lines)
-#awk 'NR==1{print $1}' BC04.contigs.fasta
-
-#prints colum j and line i
-#imprime la columna j y la fila 1
-# awk -v i=1 -v j=2 'FNR == i {print $j}' BC04.contigs.fasta
-
-
-
-#generate the polished genome in fasta format
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_2.vcf > polished_genome_3.fa
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_3.vcf > polished_genome_3.fa
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_4.vcf > polished_genome_4.fa
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_5.vcf > polished_genome_5.fa
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta polished_6.vcf > polished_genome_6.fa
-
-
-samtools faidx polished_genome_01.fa
-samtools faidx polished_genome_01.fa "tig00000001:1-908" > polished_01.fa
-
-
-samtools faidx polished_genome_3.fa
-samtools faidx polished_genome_4.fa
-samtools faidx polished_genome_5.fa
-samtools faidx polished_genome_6.fa
-
-samtools faidx polished_genome_2.fa "tig00000002:1-905" > polished_2.fa
-samtools faidx polished_genome_3.fa "tig00000005:1-1018" > polished_3.fa
-samtools faidx polished_genome_4.fa "tig00000010:1-2223" > polished_4.fa
-samtools faidx polished_genome_5.fa "tig00001152:1-1547" > polished_5.fa
-samtools faidx polished_genome_6.fa "tig00001153:1-1560" > polished_6.fa
-
-#Aquí tengo que mover todos los archivos a la carpeta de su muestra
-
-#Aligning the polished sequences with the reference (I used Illumina sequences as reference)
 module load MUMmer/3.23-foss-2016b
 
 #For Segment 8 of IAV
@@ -128,21 +87,6 @@ nucmer LO-034_final_Seg5.fa polished_genome_5.fa -p segment5
 delta-filter -1 segment5.delta > segment5.1delta
 mummerplot --size large -fat --color -f --png segment5.1delta -p segment5
 
-
-
 #Nanopore quality assesment (done only for the contig 02, using as reference the sequence I got by Illumina)
 module load QUAST/5.0.0.dev0-foss-2016b-Python-3.5.2
 quast.py LO-034_final_Seg8.fa polished_genome_2.fa
-
-
-
-
-##For Run1
-
-#For basecalling using Guppy
-module load ont-guppy/3.2.4-CPU
-for i in fast5/*
-do
-  f=$( echo $i )
-guppy_basecaller -i  $f -s /scratch/lo50936/Data_analysis/Nanopore/20190619_Run_1/ --flowcell  FLO-MIN106 --kit SQK-DCS108
-done
