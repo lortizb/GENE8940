@@ -13,22 +13,14 @@ mkdir "Data_analysis"
 cd Data_analysis/
 ##BASEDIR="/scratch/lo50936/Data_analysis/Nanopore/Data_analysis"
 
-#Raw data must be saved in these files:
-#fast5_files/
-#fastq_files/
-
-#For basecalling using Guppy (when MinIt is not used)
-#module load ont-guppy/3.2.4-CPU
-#for i in fast5/*
-#do
-#  f=$( echo $i )
-#guppy_basecaller -i  $f -s /scratch/lo50936/Data_analysis/Nanopore/20190619_Run_1/ --flowcell  FLO-MIN106 --kit SQK-DCS108
-#done
+#Raw data is saved in these files:
+#/original_files/fast5_files/
+#/original_files/fastq_files/
 
 #Combine all input reads into a single file (all fastq files)
 cat fastq_files/*/*.fastq | gzip > all_reads.fastq.gz
 
-#Demultiplex barcodes, the total reads and barcodes of each sample can be found in the log file
+#Demultiplex barcodes (total reads and barcodes of each sample can be found in the log file)
 module load Porechop/0.2.4-foss-2016b-Python-3.5.2
 porechop -i all_reads.fastq.gz -b Demultiplexed
 
@@ -38,31 +30,39 @@ module load canu/1.7.1
 for i in BC*gz
 do
   f=$( echo $i | cut -d"." -f1)
-canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false
+canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false #corMhapSensitivity=high and stopOnLowCoverage=1 can be used for low coverage samples
 done
 
 #Improve the draft genome using Nanopolish
+
 module load Nanopolish/0.11.1
-nanopolish index -d /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/Test3_rep/fast5_files BC04.fastq.gz
-
-#Create an index file that links reads id with their signal-level data in the raw data
 module load minimap2/2.17-foss-2018a
-module load SAMtools/1.6-foss-2016b #module load SAMtools/1.9-foss-2016b
-minimap2 -ax map-ont -t 8 BC04.contigs.fasta BC04.fastq.gz | samtools sort -o reads_BC04.sorted.bam -T reads_BC04.tmp
-samtools index reads_BC04.sorted.bam
+module load SAMtools/1.6-foss-2016b
 
-#Compute a new consensus sequence for the draft genome
-grep \> BC04.contigs.fasta | cat | tr -d ">" | tr -d "len=" > contig_list.txt
-count=$( grep "tig" contig_list.txt | wc -l); echo $count
-for ((i=1;i<$count+1;i++))
+#First step: create index files that link reads ID with their signal-level data in the raw data
+for i in BC*gz
 do
-contig=$( cat contig_list.txt | awk -v f=1 -v h=$i 'FNR == h {print $f}' )
-lengh=$( cat contig_list.txt | awk -v f=$i -v h=2 'FNR == f {print $h}' )
-nanopolish variants --consensus -o variants_$i.vcf -w "$contig:1-$lengh" -r BC04.fastq.gz -b reads_BC04.sorted.bam -g BC04.contigs.fasta
-nanopolish vcf2fasta --skip-checks -g BC04.contigs.fasta variants_$i.vcf > draft_gene_$i.fa
-samtools faidx draft_gene_$i.fa "$contig:1-$lengh" > polished_gene_$i.fa
+barcode=$( echo $i | cut -d"." -f1)
+cd $barcode/
+nanopolish index -d /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fast5_* ../$barcode.fastq.gz
+minimap2 -ax map-ont -t 8 $barcode.contigs.fasta ../$barcode.fastq.gz | samtools sort -o reads_$barcode.sorted.bam -T reads_$barcode.tmp
+samtools index reads_$barcode.sorted.bam
+
+#Second step: Compute a new consensus sequence for the draft assembly (obtained by Canu). Nanopolish polishes only one single contig at a time, then all polished contigs (here one contig correspond to a IAV gene) are combined in a single file (final genome).
+grep \> $barcode.contigs.fasta | cat | tr -d ">" | tr -d "len=" > $barcode.contig_list.txt  #Make a list of the contigs included in the draft genome. This list is used to count the number of contigs.
+count=$( grep "tig" $barcode.contig_list.txt | wc -l); echo $count #Count the number of contigs per file. The IAV genome has 8 genes; however in mixed infections the number of expected genes could be more than 8.
+for ((i=1;i<$count+1;i++)) #Second loop to polish all contigs in a sample
+do
+  BC*/$barcode
+contig=$( cat $barcode.contig_list.txt | awk -v f=1 -v h=$i 'FNR == h {print $f}' ) #Select the name of the contig (column #1 and rows #1-i)
+lengh=$( cat $barcode.contig_list.txt | awk -v f=$i -v h=2 'FNR == f {print $h}' ) #Select the lengh of the contig (column #2 and rows #1-i)
+nanopolish variants --consensus -o $barcode.variant_$i.vcf -w "$contig:1-$lengh" -r ../$barcode.fastq.gz -b reads_$barcode.sorted.bam -g $barcode.contigs.fasta #create the vcf file (one file per contig) that is used in the following step to generate a fasta file
+nanopolish vcf2fasta --skip-checks -g $barcode.contigs.fasta $barcode.variant_$i.vcf > $barcode.draft_gene_$i.fa #Generate a fasta file (this file contains the polished contig and other not polished contigs, which are deleted in the following step)
+samtools faidx $barcode.draft_gene_$i.fa "$contig:1-$lengh" > $barcode.polished_gene_$i.fa #Delete the unpolished contigs
 done
-cat polished_gene*.fa > final_genome.fa #Esta linea la tengo que modificar para que sea específica para bardcode, de lo contrario va a unir todos los archivos que encuentre
+cat $barcode.polished_gene*.fa > $barcode.final_genome.fa #All polished contigs are combined in a single file
+cd ..
+done
 
 
 module load MUMmer/3.23-foss-2016b
