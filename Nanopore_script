@@ -2,91 +2,128 @@
 #PBS -q batch
 #PBS -N jobname
 #PBS -l nodes=1:ppn=16
-#PBS -l walltime=48:00:00
+#PBS -l walltime=480:00:00
 #PBS -l mem=8gb
-#PBS --output=log.%j
-#PBS --output=/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/log.%j
 
-# I need to fix the working directory, For now I am working interactively
-cd $PBS_O_WORKDIR
-mkdir "Data_analysis"
-cd Data_analysis/
-##BASEDIR="/scratch/lo50936/Data_analysis/Nanopore/Data_analysis"
+$PBS_O_WORKDIR
+cd /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/
 
-#Raw data is saved in these files:
-#/original_files/fast5_files/
-#/original_files/fastq_files/
+#Raw data is saved in the folowing folders. fast5 is a format from Oxford Nanopore (ONT) and fastq are the basecalled reads
+#/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fast5_files/fast5_pass/
+#/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fast5_files/fast5_fail/
+#/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fastq_files/fastq_pass/
+#/scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fastq_files/fastq_fail/
 
-#Combine all input reads into a single file (all fastq files)
-cat fastq_files/*/*.fastq | gzip > all_reads.fastq.gz
+#Merge all fastq files into a single file (output: merged fastq file)
+cat original_data/fastq_files/*/*.fastq | gzip > all_reads.fastq.gz
 
-#Demultiplex barcodes (total reads and barcodes of each sample can be found in the log file)
+#Demultiplex samples by barcode (total reads and barcodes of each sample can be found in the log file, output: one fastq file per barcode)
 module load Porechop/0.2.4-foss-2016b-Python-3.5.2
 porechop -i all_reads.fastq.gz -b Demultiplexed
 
-# Assembly draft genome using Canu (generation of fasta files)
+# Assembly draft genome using Canu (output: fasta files)
 cd Demultiplexed/
 module load canu/1.7.1
 for i in BC*gz
 do
   f=$( echo $i | cut -d"." -f1)
-canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false #corMhapSensitivity=high and stopOnLowCoverage=1 can be used for low coverage samples
+canu -p $f -d $f genomeSize=13k -nanopore-raw $i useGrid=false minReadLength=500 stopOnReadQuality=false #(here we can use corMhapSensitivity=high, stopOnLowCoverage=1 and correctedErrorRate=0.16 to improve assembly)
+can be used for low coverage samples
 done
 
-#Improve the draft genome using Nanopolish
+#Improve the draft genome using Nanopolish (output: improved fasta file)
 
 module load Nanopolish/0.11.1
 module load minimap2/2.17-foss-2018a
 module load SAMtools/1.6-foss-2016b
 
-#First step: create index files that link reads ID with their signal-level data in the raw data
-for i in BC*gz
+# Raw data needs to be save in the same folder where Nanopolish is running, so we are coping these files inside Demultiplexed
+cp -r /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fast5_files/*/ ./
+
+#First Polishing step: create index files that link reads ID with their signal-level data in the raw data
+for i in BC*/ #First loop: run commands for each barcode
 do
-barcode=$( echo $i | cut -d"." -f1)
-cd $barcode/
-nanopolish index -d /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/original_data/fast5_* ../$barcode.fastq.gz
-minimap2 -ax map-ont -t 8 $barcode.contigs.fasta ../$barcode.fastq.gz | samtools sort -o reads_$barcode.sorted.bam -T reads_$barcode.tmp
+barcode=$( echo $i | cut -d"/" -f1)
+nanopolish index -d fast5_files/ $barcode.fastq.gz
+minimap2 -ax map-ont -t 8 $barcode/$barcode.contigs.fasta $barcode.fastq.gz | samtools sort -o reads_$barcode.sorted.bam -T reads_$barcode.tmp
 samtools index reads_$barcode.sorted.bam
 
-#Second step: Compute a new consensus sequence for the draft assembly (obtained by Canu). Nanopolish polishes only one single contig at a time, then all polished contigs (here one contig correspond to a IAV gene) are combined in a single file (final genome).
-grep \> $barcode.contigs.fasta | cat | tr -d ">" | tr -d "len=" > $barcode.contig_list.txt  #Make a list of the contigs included in the draft genome. This list is used to count the number of contigs.
+#Second Polish step: Compute a new consensus sequence for the draft assembly (obtained by Canu). Nanopolish polishes only one single contig at a time, then all polished contigs (here one contig correspond to a IAV gene) are combined in a single file (final genome).
+grep \> $barcode/$barcode.contigs.fasta | cat | tr -d ">" | tr -d "len=" > $barcode.contig_list.txt #Make a list of the contigs included in the draft genome. This list is used to count the number of contigs.
 count=$( grep "tig" $barcode.contig_list.txt | wc -l); echo $count #Count the number of contigs per file. The IAV genome has 8 genes; however in mixed infections the number of expected genes could be more than 8.
-for ((i=1;i<$count+1;i++)) #Second loop to polish all contigs in a sample
+for ((i=1;i<$count+1;i++)) #Second loop: polish all contigs in a sample
 do
-  BC*/$barcode
-contig=$( cat $barcode.contig_list.txt | awk -v f=1 -v h=$i 'FNR == h {print $f}' ) #Select the name of the contig (column #1 and rows #1-i)
-lengh=$( cat $barcode.contig_list.txt | awk -v f=$i -v h=2 'FNR == f {print $h}' ) #Select the lengh of the contig (column #2 and rows #1-i)
-nanopolish variants --consensus -o $barcode.variant_$i.vcf -w "$contig:1-$lengh" -r ../$barcode.fastq.gz -b reads_$barcode.sorted.bam -g $barcode.contigs.fasta #create the vcf file (one file per contig) that is used in the following step to generate a fasta file
-nanopolish vcf2fasta --skip-checks -g $barcode.contigs.fasta $barcode.variant_$i.vcf > $barcode.draft_gene_$i.fa #Generate a fasta file (this file contains the polished contig and other not polished contigs, which are deleted in the following step)
+  contig=$( cat $barcode.contig_list.txt | awk -v f=1 -v h=$i 'FNR == h {print $f}' ) #Select the name of the contig (column #1 and rows #1-i)
+  lengh=$( cat $barcode.contig_list.txt | awk -v f=$i -v h=2 'FNR == f {print $h}' ) #Select the lengh of the contig (column #2 and rows #1-i)
+nanopolish variants --consensus -o $barcode.variant_$i.vcf -w "$contig:1-$lengh" -r $barcode.fastq.gz -b reads_$barcode.sorted.bam -g $barcode/$barcode.contigs.fasta #create the vcf file (one file per contig) that is used in the following step to generate a fasta file
+nanopolish vcf2fasta --skip-checks -g $barcode/$barcode.contigs.fasta $barcode.variant_$i.vcf > $barcode.draft_gene_$i.fa #Generate a fasta file (this file contains the polished contig and other not polished contigs, which are deleted in the following step)
 samtools faidx $barcode.draft_gene_$i.fa "$contig:1-$lengh" > $barcode.polished_gene_$i.fa #Delete the unpolished contigs
 done
+
 cat $barcode.polished_gene*.fa > $barcode.final_genome.fa #All polished contigs are combined in a single file
+mv *$barcode* $barcode/ #Move all files to their respective barcode folder.
+
+done
+
+# Delete raw data from Demultiplexed folder
+rm -r /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/original_data/fast5_files/*/
+
+#Identification of subtypes and IAV genes (output: selected fasta file)
+
+module load BLAST+/2.9.0-foss-2018a
+for i in BC*/
+do
+barcode=$( echo $i | cut -d"/" -f1)
+cd $barcode
+blastn -query $barcode.final_genome.fa -db /db/ncbiblast/nrte/latest/nt -max_hsps 5 -outfmt 5 -num_alignments 1 -out $barcode.blast.txt -dust no -task blastn #Blast search of the polished contigs
+blastn -query $barcode.unassembled.fasta -db /db/ncbiblast/nrte/latest/nt -max_hsps 5 -outfmt 5 -num_alignments 1 -out $barcode.unassembled.blast.txt -dust no -task blastn #Blast search of the unassembled contigs. This is to identify if missing IAV segments were sequenced, but not assembled
 cd ..
 done
 
+#At the end we will have a folder (named according the barcode) per sample containing all generated files.
+# For example, files for samples with barcode BC03 can be found in /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC03/
 
+#Comparison of ONT and Illumina genomes using mummer. We will compare only the genes obtained from one sample.
 module load MUMmer/3.23-foss-2016b
+mkdid /ONT-Illumina_comparison
+cd /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/ONT-Illumina_comparison
 
-#For Segment 8 of IAV
-nucmer PATH/LO-034_final_Seg8.fa polished_01.fa -p segment8
-delta-filter -1 segment8.delta > segment8.1delta
-mummerplot --size large -fat --color -f --png segment8.1delta -p segment8
+#reference genomes for sample with Barcode BC09
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/reference_genome/*.fa ./
 
-#For Segment 7 of IAV
-nucmer LO-034_final_Seg7.fa polished_genome_3.fa -p segment7
-delta-filter -1 segment7.delta > segment7.1delta
-mummerplot --size large -fat --color -f --png segment7.1delta -p segment7
+#Contigs for sample with barcode BC09
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC09/BC09.polished_gene_6.fa ./ #Similar to segment3 accodging to the bast search
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC09/BC09.polished_gene_7.fa ./ #Similar to segment4 accodging to the bast search
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC09/BC09.polished_gene_5.fa ./ #Similar to segment5 accodging to the bast search
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC09/BC09.polished_gene_4.fa ./ #Similar to segment6 accodging to the bast search
+cp /scratch/lo50936/Data_analysis/Nanopore/Data_analysis/TEST_pipeline/Demultiplexed/BC09/BC09.polished_gene_11.fa ./ #Similar to segment7 accodging to the bast search
 
 #For Segment 3 of IAV
-nucmer LO-034_final_Seg3.fa polished_genome_4.fa -p segment3
+nucmer LO-039_Seg3_PA.fa BC09.polished_gene_6.fa -p segment3
 delta-filter -1 segment3.delta > segment3.1delta
 mummerplot --size large -fat --color -f --png segment3.1delta -p segment3
+dnadiff --prefix segment3-1.dnadiff LO-039_Seg3_PA.fa BC09.polished_gene_6.fa
+
+#For Segment 4 of IAV
+nucmer LO-039_Seg4_HA.fa BC09.polished_gene_7.fa -p segment4
+delta-filter -1 segment4.delta > segment4.1delta
+mummerplot --size large -fat --color -f --png segment4.1delta -p segment4
+dnadiff --prefix segment4.dnadiff LO-039_Seg4_HA.fa BC09.polished_gene_7.fa
 
 #For Segment 5 of IAV
-nucmer LO-034_final_Seg5.fa polished_genome_5.fa -p segment5
+nucmer LO-039_Seg5_NP.fa BC09.polished_gene_5.fa -p segment5
 delta-filter -1 segment5.delta > segment5.1delta
 mummerplot --size large -fat --color -f --png segment5.1delta -p segment5
+dnadiff --prefix segment5.dnadiff LO-039_Seg5_NP.fa BC09.polished_gene_5.fa
 
-#Nanopore quality assesment (done only for the contig 02, using as reference the sequence I got by Illumina)
-module load QUAST/5.0.0.dev0-foss-2016b-Python-3.5.2
-quast.py LO-034_final_Seg8.fa polished_genome_2.fa
+#For Segment 6 of IAV
+nucmer LO-039_Seg6_NA.fa BC09.polished_gene_4.fa -p segment6
+delta-filter -1 segment6.delta > segment6.1delta
+mummerplot --size large -fat --color -f --png segment6.1delta -p segment6
+dnadiff --prefix segment6.dnadiff LO-039_Seg6_NA.fa BC09.polished_gene_4.fa
+
+#For Segment 7 of IAV
+nucmer LO-039_Seg7_M.fa BC09.polished_gene_11.fa -p segment7-5
+delta-filter -1 segment7-5.delta > segment7-5.1delta
+mummerplot --size large -fat --color -f --png segment7-5.1delta -p segment7-5
+dnadiff --prefix segment7-5.dnadiff LO-039_Seg7_M.fa BC09.polished_gene_11.fa
